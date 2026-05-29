@@ -177,7 +177,7 @@ pub fn variogram_benchmark(c: &mut Criterion) {
     let pos_no = 2_000;
     let f = Array2::from_elem((1, pos_no), 1.0);
     let bin_edges = Array1::linspace(0., 20., 30);
-    let pos = Array2::random_using((2, pos_no), Uniform::new(-10., 10.), &mut rng);
+    let pos = Array2::random_using((2, pos_no), Uniform::new(-10., 10.).unwrap(), &mut rng);
 
     c.bench_function("variogram unstructured", |b| {
         b.iter(|| {
