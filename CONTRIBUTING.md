@@ -14,8 +14,8 @@ description of the problem and if possible with a
 - please add the version number to the issue:
 
 ```python
-import gstools
-print(gstools.__version__)
+import gstools_core
+print(gstools_core.__version__)
 ```
 
 
@@ -36,7 +36,10 @@ with your idea or suggestion and we'd love to discuss about it.
   Please use the script `cargo clippy` after you have written your code.
 - Push to your fork and submit a pull request.
 
+
 ## Tips on getting started
+
+The steps shown here use [uv](https://docs.astral.sh/uv/), but every other Python package manager will work too.
 
 - First, create a virtual environment with `uv venv .venv` or similar, maybe you have to source it with `source .venv/bin/activate`.
 - Next, install maturin for building the Python package with `uv tool install maturin`.
