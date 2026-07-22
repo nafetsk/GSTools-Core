@@ -45,3 +45,4 @@ The steps shown here use [uv](https://docs.astral.sh/uv/), but every other Pytho
 - Next, install maturin for building the Python package with `uv tool install maturin`.
 - Now, you can build the crate and install it as a Python module into the current venv with `maturin develop`
 - For perfomance testing, you can compile the code optimized with `maturin develop --release`.
+- If you install GSTools into the same venv with `uv pip install gstools`, it will automatically use the local GSTools Core package installed with maturin.
