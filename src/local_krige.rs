@@ -30,6 +30,7 @@ use std::fmt;
 use kdtree::{distance::squared_euclidean, KdTree};
 use nalgebra::{DMatrix, DVector};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
+use rayon::prelude::*;
 
 use crate::covmodel::CovModel;
 
@@ -284,7 +285,7 @@ pub fn calc_field_krige_local(
     num_threads: Option<usize>,
 ) -> Result<(Array1<f64>, Array1<f64>), LocalKrigeError> {
     // Unused until the loop below becomes a `par_iter` (see module docs).
-    let _ = num_threads;
+    // let _ = num_threads;
 
     let dim = cond_pos.nrows();
     let cond_no = cond_pos.ncols();
@@ -354,11 +355,24 @@ pub fn calc_field_krige_local(
         Ok((field_j, error_j))
     };
 
-    let (field, error): (Vec<f64>, Vec<f64>) = (0..pnt_cnt) // range over target points is the parameter for the closure solve_one
-        .map(solve_one)
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .unzip();
+    // let (field, error): (Vec<f64>, Vec<f64>) = (0..pnt_cnt) // range over target points is the parameter for the closure solve_one
+    //     .map(solve_one)
+    //     .collect::<Result<Vec<_>, _>>()?
+    //     .into_iter()
+    //     .unzip();
+
+    let results: Vec<(f64, f64)> = rayon::ThreadPoolBuilder::new()
+    .num_threads(num_threads.unwrap_or(rayon::current_num_threads()))
+    .build()
+    .unwrap()
+    .install(|| {
+        (0..pnt_cnt)
+            .into_par_iter()
+            .map(solve_one)
+            .collect::<Result<Vec<_>, _>>()
+    })?;
+
+    let (field, error): (Vec<f64>, Vec<f64>) = results.into_iter().unzip();
 
     Ok((Array1::from(field), Array1::from(error)))
 }
