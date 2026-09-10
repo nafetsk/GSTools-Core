@@ -33,6 +33,11 @@ pyo3 = { version = "0.28", features = ["abi3-py38", "extension-module"] }
 numpy = "0.28"
 ndarray = { version = "0.17", features = ["rayon", "approx"] }
 rayon = "1.10"
+kdtree = "0.8.1"
+nalgebra = "0.35.0"
+scirs2-special = "0.6.5"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
