@@ -27,4 +27,9 @@ pub enum CovModelSpec {
         nugget: f64,
         nu: f64,
     },
+    Spherical {
+        var: f64,
+        len_scale: f64,
+        nugget: f64,
+    },
 }

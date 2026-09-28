@@ -93,6 +93,11 @@ pub enum CovModel {
         nu: f64,
         sqrt_nu: f64,
     },
+    Spherical {
+        var: f64,
+        len_rescaled: f64,
+        nugget: f64,
+    },
 }
 
 /// Matérn normalized correlation function, following gstools'
@@ -178,6 +183,18 @@ impl CovModel {
                     sqrt_nu: nu.sqrt(),
                 })
             }
+            CovModelSpec::Spherical {
+                var,
+                len_scale,
+                nugget,
+            } => {
+                check_common(var, len_scale, nugget)?;
+                Ok(Self::Spherical {
+                    var,
+                    len_rescaled: len_scale, // rescale = 1
+                    nugget,
+                })
+            }
         }
     }
 
@@ -185,7 +202,8 @@ impl CovModel {
         match self {
             Self::Gaussian { var, .. }
             | Self::Exponential { var, .. }
-            | Self::Matern { var, .. } => *var,
+            | Self::Matern { var, .. }
+            | Self::Spherical { var, .. } => *var,
         }
     }
 
@@ -193,7 +211,8 @@ impl CovModel {
         match self {
             Self::Gaussian { nugget, .. }
             | Self::Exponential { nugget, .. }
-            | Self::Matern { nugget, .. } => *nugget,
+            | Self::Matern { nugget, .. }
+            | Self::Spherical { nugget, .. } => *nugget,
         }
     }
 
@@ -217,6 +236,11 @@ impl CovModel {
             } => {
                 let h = r / len_rescaled;
                 matern_cor(*nu, *sqrt_nu, h)
+            }
+            Self::Spherical { len_rescaled, .. } => {
+                // compact support: the polynomial is exactly 0 at h = 1
+                let h = (r / len_rescaled).min(1.0);
+                1.0 - 1.5 * h + 0.5 * h * h * h
             }
         }
     }
@@ -296,6 +320,11 @@ mod tests {
                 len_scale: 3.0,
                 nugget: 0.1,
                 nu: 2.5,
+            },
+            CovModelSpec::Spherical {
+                var: 2.0,
+                len_scale: 3.0,
+                nugget: 0.1,
             },
         ] {
             let model = build(spec);
@@ -396,6 +425,74 @@ mod tests {
                 );
             }
         }
+    }
+        #[test]
+    fn spherical_matches_reference() {
+        // cor(h) = 1 - 1.5 h + 0.5 h^3 for h < 1, else 0; rescale = 1, so
+        // with len_scale = 2 the support ends at r = 2.
+        let model = build(CovModelSpec::Spherical {
+            var: 1.0,
+            len_scale: 2.0,
+            nugget: 0.0,
+        });
+        let cases = [
+            (0.5, 0.6328125),
+            (1.0, 0.3125),
+            (-1.0, 0.3125),
+            (1.8, 0.0145),
+            (2.0, 0.0),
+            (4.0, 0.0),
+            (100.0, 0.0),
+        ];
+        for (r, expected) in cases {
+            let got = model.correlation(r);
+            assert!(
+                (got - expected).abs() < 1e-12,
+                "r={r}: got {got}, expected {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn spherical_covariance_and_variogram_reach_sill_at_range() {
+        let model = build(CovModelSpec::Spherical {
+            var: 2.0,
+            len_scale: 3.0,
+            nugget: 0.5,
+        });
+        assert!((model.covariance(1.5) - 2.0 * 0.3125).abs() < 1e-12);
+        assert_eq!(model.covariance(3.0), 0.0);
+        assert_eq!(model.covariance(10.0), 0.0);
+        assert_eq!(model.variogram(0.0), 0.0);
+        assert!((model.variogram(10.0) - model.sill()).abs() < 1e-12);
+        assert!((model.cov_nugget(0.0) - 2.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn spherical_builds_from_json() {
+        let model = CovModel::from_json(
+            r#"{"type": "spherical", "var": 1.5, "len_scale": 4.0, "nugget": 0.2}"#,
+        )
+        .expect("valid spherical JSON");
+        assert_eq!(
+            model,
+            CovModel::Spherical {
+                var: 1.5,
+                len_rescaled: 4.0,
+                nugget: 0.2,
+            }
+        );
+    }
+
+    #[test]
+    fn spherical_rejects_invalid_len_scale() {
+        let err = CovModel::build(CovModelSpec::Spherical {
+            var: 1.0,
+            len_scale: 0.0,
+            nugget: 0.0,
+        })
+        .unwrap_err();
+        assert_eq!(err, ModelError::InvalidLenScale(0.0));
     }
 
     #[test]
